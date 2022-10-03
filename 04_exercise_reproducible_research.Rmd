@@ -1,0 +1,157 @@
+---
+title: "Week 4 Exercise: Reproducible and reusable research"
+author: "Eliza Harris"
+date: "2022-10-11"
+output: html_document
+---
+
+```{r echo=FALSE, message=FALSE}
+require(lubridate)
+require(tidyverse)
+require(purrr)
+```
+
+In this exercise, we will further investigate the MCMC from the tutorial, and we wkk look at the influence of different set up choices. 
+
+## Creating a synthetic dataset
+
+We are using an MCMC to relate an independent variable (x), to a dependent variable (y), according to a non-linear relationship - unlike the linear relationship we used in the tutorial. Create the synthetic data in the same format as in the tutorial.
+
+* A vector of length 39 for x going from 1 to 20 and back to 1 in steps of 1, with an uncertainty of 2 on each point
+
+```{r}
+x = NaN
+x_err = NaN
+```
+
+* Two uncertain parameters, p and q, with prior values of 5 and -1, both with uncertainty of 2.
+
+```{r}
+p = NaN
+p_err = NaN
+q = NaN
+q_err = NaN
+```
+
+* A set of observations of quantity y (y_obs) created based on **y = (3 $\times$ sin(x)) + (x $\times$ -2) + 4**. Add noise to y using normally distributed random numbers with mean of 0 and standard deviation of 1. Note that we created y_obs with values of p and q slightly different to our prior values - we will see how well the MCMC retrieves p and q. 
+
+* This data pattern could be representative of any natural phenomenon combining both a trend and a cycle, eg. diurnal temperature changes on top of a decreasing temperature trend.
+
+* Our measurement technique means that error in y is relative, not absolute. Set the *relative* error in y to 20%.
+
+```{r}
+y_obs = NaN
+y_obs_rerr = NaN
+```
+
+* A model relating stating that quantity y follows the function **y = (3 $\times$ sin(x)) + (x $\times$ q) + p**. 
+
+* We are fairly confident in the model so we assign its predictions an uncertainty of 10% of the modelled value (*relative error*).
+
+```{r}
+test_model = function(x,p,q){ 
+  return(NaN)
+}
+y_mod = test_model(x,p,q)
+model_rerr = NaN
+```
+
+## Investigate the synthetic dataset
+
+Plot the synthetic dataset, as we did in the tutorial. Adjust the plot to best show the data: Think about plot type, limits... Illustrate the uncertainty in y by using arrows as error bars, or any other method you prefer. Additionally, calculate the RMSE. 
+
+```{r}
+# Add solution here
+```
+
+## Create an MCMC implementation as a function
+
+Create a function to implement an MCMC by adapting the code from the tutorial. Remember to account for the relative error in y. You can combine all code in one function, or have multiple functions for smaller tasks called by the main function. 
+
+The function should create the two figures we used in the tutorial: i) a figure showing p and q for each iteration as well as a 1:1 plot of p and q, and ii) a plot of prior and posterior model results plotted against x and in a 1:1 plot.
+
+The function output should include posterior values and uncertainties for p, q, x, y, and modelled posterior y. Combine these in an appropriate manner for return from the function.
+
+```{r}
+# Add any helper functions you need here, like the Gaussian probability function from the tutorial
+
+# Main MCMC function
+# Add more inputs if you need
+MCMC = function(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = NaN, 
+    n_iterations = NaN
+){
+  # Add MCMC code here
+  
+  # Combine return values
+  res = NaN
+  return(res)
+}
+```
+
+## Run the MCMC
+
+Run the MCMC with step length of 1 and 10000 iterations. 
+
+```{r}
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 1, 
+    n_iterations = 10000 
+)
+```
+
+## Effect of step number and size
+
+Run the MCMC with a step size of 0.2 instead of 1. What changes do you observe in: The number of accepted solutions? Why? The shape of changes in p and q over each iteration, as shown in the figure? The final results?
+
+*Describe your solution*
+
+```{r}
+# Run MCMC here stepsize of 0.2
+```
+
+Run the MCMC with a step size of 0.2 in combination with 500 steps and with 100 000 steps. What difference do you see between these two configurations?
+
+*Describe your solution*
+
+```{r}
+# Run MCMC here with 500 steps
+```
+
+```{r}
+# Run MCMC here with 100 000 steps
+```
+
+## Effect of prior parameters
+
+Our prior values of p was not so far from the value used to generate y. Let's set p to 10 with large uncertainty of 10 and run the MCMC. What happens? What other parameters do you need to change for good results?
+
+*Describe your solution*
+
+```{r}
+# Run MCMC here with p = 10 and p_err = 10
+# Select an appropriate step size and n_iterations
+```
+
+## Effect of uncertainty
+
+Let's imagine our prior estimates were very well constrained and set uncertainty in p and q to 0.1. What happens?
+
+*Describe your solution*
+
+```{r}
+# Run MCMC here with p = 10 and p_err = 10
+# Select an appropriate step size and n_iterations
+```
+
+
