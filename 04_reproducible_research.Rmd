@@ -190,7 +190,7 @@ par(mfrow=c(1,1))
 plot(1:n_iterations,p_i,pch=4,col="blue")
 points((1:n_iterations)[accepted==1],p_i[accepted==1],pch=4,col="red")
 lines(1:n_iterations,rep(p,n_iterations),col="yellow") # Plot prior p also
-legend("topleft", legend=c("prior","all solutions","accepted solutions"),col=c("blue", "red","yellow"), lty=1, cex=0.5, pch=20)
+legend("topleft", legend=c("prior","all solutions","accepted solutions"),col=c("yellow", "blue","red"), lty=1, cex=0.5, pch=20)
 p_post = c(mean(p_i[accepted==1]),sd(p_i[accepted==1]))
 print(paste0("Posterior value of p: p = ",round(p_post[1],2)," +/- ",round(p_post[2],2)))
 ```
