@@ -1,6 +1,6 @@
 ---
 title: "Week 4 Exercise: Reproducible and reusable research"
-author: "Eliza Harris"
+author: "Ruoyi Chen"
 date: "2022-10-11"
 output: html_document
 ---
@@ -20,17 +20,18 @@ We are using an MCMC to relate an independent variable (x), to a dependent varia
 * A vector of length 39 for x going from 1 to 20 and back to 1 in steps of 1, with an uncertainty of 2 on each point
 
 ```{r}
-x = NaN
-x_err = NaN
+x = c(1:20, 19:1)
+x_err = 2
 ```
 
 * Two uncertain parameters, p and q, with prior values of 5 and -1, both with uncertainty of 2.
 
 ```{r}
-p = NaN
-p_err = NaN
-q = NaN
-q_err = NaN
+p = 5
+p_err = 2
+q = -1
+q_err = 2
+
 ```
 
 * A set of observations of quantity y (y_obs) created based on **y = (3 $\times$ sin(x)) + (x $\times$ -2) + 4**. Add noise to y using normally distributed random numbers with mean of 0 and standard deviation of 1. Note that we created y_obs with values of p and q slightly different to our prior values - we will see how well the MCMC retrieves p and q. 
@@ -40,8 +41,9 @@ q_err = NaN
 * Our measurement technique means that error in y is relative, not absolute. Set the *relative* error in y to 20%.
 
 ```{r}
-y_obs = NaN
-y_obs_rerr = NaN
+y_obs = 3 * sin(x) - 2 * x + 4 + rnorm(length(x), 0, 1)
+y_obs_rerr = 0.2
+
 ```
 
 * A model relating stating that quantity y follows the function **y = (3 $\times$ sin(x)) + (x $\times$ q) + p**. 
@@ -50,10 +52,11 @@ y_obs_rerr = NaN
 
 ```{r}
 test_model = function(x,p,q){ 
-  return(NaN)
+  return(3 * sin(x) + x * q + p)
 }
 y_mod = test_model(x,p,q)
-model_rerr = NaN
+model_rerr = 0.1
+
 ```
 
 ## Investigate the synthetic dataset
@@ -61,7 +64,23 @@ model_rerr = NaN
 Plot the synthetic dataset, as we did in the tutorial. Adjust the plot to best show the data: Think about plot type, limits... Illustrate the uncertainty in y by using arrows as error bars, or any other method you prefer. Additionally, calculate the RMSE. 
 
 ```{r}
-# Add solution here
+compare_obs_model = function(obs,obs_rerr,model){
+  par(mar=c(2,4,1,1)) 
+  par(mfrow=c(2,1))
+  plot(x,model,ylab="y",pch=20,col="royalblue", ylim = c(-25, 10))
+  points(x,obs,ylab="y",pch=20,col="palevioletred")
+  legend("topright", 1, 95, legend=c("Model", "Obs"),
+       col=c("royalblue", "palevioletred"), lty=1, cex=0.4)
+  plot(model,obs,ylab="observations",xlab="model",pch=20,col="royalblue", xlim = c(-25,10), ylim = c(-25, 10), cex = 0.5)
+  lines(obs,obs,col="salmon")
+  arrows(x0=model, y0=obs-obs_rerr, x1=model, y1=obs+obs_rerr, code=3, col="royalblue", lwd=0.3, angle=90, length=0.05)
+  rmse = (sum((obs-model)**2)/length(obs))**0.5
+  print(paste0("RMSE: ",rmse))
+}
+
+y_mod = test_model(x,p,q)
+compare_obs_model(y_obs,y_obs_rerr,y_mod)
+
 ```
 
 ## Create an MCMC implementation as a function
@@ -73,10 +92,52 @@ The function should create the two figures we used in the tutorial: i) a figure 
 The function output should include posterior values and uncertainties for p, q, x, y, and modelled posterior y. Combine these in an appropriate manner for return from the function.
 
 ```{r}
-# Add any helper functions you need here, like the Gaussian probability function from the tutorial
+n_iterations = 10000
 
+#helpers
+gaussian_prob = function(x,m=0,s=1){
+  res = exp( -0.5 * ((x-m)/s)**2 )
+  if (length(res)>1){ 
+    res = mean(res)
+  }
+  return(res)
+}
+
+# create result space
+result_space = function(variable){
+variable_i = matrix(nrow=n_iterations,ncol=length(variable),-1)
+return(variable_i)
+}
+
+# compare the post and prior value with plots
+compare_post_prior = function(x,y_obs,y_mod,x_post,y_post,y_mod_post){
+  par(mar=c(2,4,1,1)) 
+  par(mfrow=c(2,1))
+ # plot x vs y, prior and post
+  plot(x,y_obs,xlab="x",ylab="y",pch=20,lty=1,col="blue",ylim=c(-25,10))
+  points(x_post,y_post,pch=20,col="cyan")
+  points(x,y_mod,pch=20,col="red")
+  points(x_post,y_mod_post,pch=20,col="magenta")
+  legend("topright", legend=c("prior","post","mod prior","mod post"),
+       col=c("blue", "cyan","red", "magenta"), lty=1, cex=0.5)
+  #  1:1 plot
+  plot(y_obs,y_mod,ylab="observations",xlab="model",pch=20,col="blue",xlim = c(-30,10), ylim=c(-30,10))
+  points(y_post,y_mod_post,pch=20,col="cyan")
+  lines(y_obs,y_obs,col="red")
+  legend("topright", legend=c("prior","post"),col=c("blue", "cyan"), lty=1, cex=0.5)
+  # print RMSE
+  rmse = (sum((y_obs-y_mod)**2)/length(y_obs))**0.5
+  print(paste0("RMSE prior: ",rmse))
+  rmse = (sum((y_post-y_mod_post)**2)/length(y_post))**0.5
+  print(paste0("RMSE posterior: ",rmse))
+}
+
+
+```
+
+
+```{r}
 # Main MCMC function
-# Add more inputs if you need
 MCMC = function(
     x, x_err,
     y_obs, y_obs_rerr,
@@ -86,12 +147,118 @@ MCMC = function(
     step_length = NaN, 
     n_iterations = NaN
 ){
-  # Add MCMC code here
+  # Set parameters of the MCMC
+  step_length = step_length
+  n_iterations = n_iterations
+
+  # Starting point 
+  prev_x = x
+  prev_y = y_obs
+  prev_p = p
+  prev_q = q
+  prev_y_mod = test_model(x,p,q)
+
+  # Space for the results 
+  x_i = result_space(x)
+  y_est_i = result_space(y_obs)
+  y_mod_i = result_space(y_obs)
+  p_i = matrix(nrow=n_iterations, ncol=1, -1)
+  q_i = matrix(nrow=n_iterations, ncol=1, -1)
+  accepted = matrix(nrow=n_iterations, ncol=1, -1)
+
+ # Run the MCMC
+  for (n in 1:n_iterations){
+    accept = 0
   
+    #perturb the estimates 
+    x_i[n,] = prev_x + x_err*runif(1,-1,1)*step_length
+    y_est_i[n,] = prev_y + y_obs*y_obs_rerr*runif(1,-1,1)*step_length
+    p_i[n] = prev_p + p_err*runif(1,-1,1)*step_length
+    q_i[n] = prev_q + q_err*runif(1,-1,1)*step_length
+
+
+  
+    # acceptance
+    current_prob_x = gaussian_prob(x_i[n,],x,x_err)
+    prev_prob_x = gaussian_prob(prev_x,x,x_err)
+    if (runif(1,0,1)<current_prob_x/prev_prob_x){accept= accept + 1}
+    current_prob_y = gaussian_prob(y_est_i[n,],y_obs, y_obs * y_obs_rerr)
+    prev_prob_y = gaussian_prob(prev_y,y_obs, prev_y * y_obs_rerr)
+    if (runif(1,0,1)<current_prob_y/prev_prob_y){accept= accept + 1}
+    current_prob_p = gaussian_prob(p_i[n],p,p_err)
+    prev_prob_p = gaussian_prob(prev_p,p,p_err)
+    if (runif(1,0,1)<current_prob_p/prev_prob_p){accept= accept + 1}
+    current_prob_q = gaussian_prob(q_i[n],q,q_err)
+    prev_prob_q = gaussian_prob(prev_q,q,q_err)
+    if (runif(1,0,1)<current_prob_q/prev_prob_q){accept= accept + 1}
+
+    # run the model
+    if (accept==4){
+      y_mod_i[n,] = test_model(x_i[n,],p_i[n], q_i[n])
+      model_err = model_rerr * y_mod_i[n,]
+      prev_model_err = model_rerr * prev_y_mod
+      current_prob_m = gaussian_prob(y_mod_i[n,], y_est_i[n,],model_err)
+      prev_prob_m = gaussian_prob(prev_y_mod, y_est_i[n,],prev_model_err)
+      if (runif(1,0,1)<current_prob_m/prev_prob_m){accept= accept + 1}
+    }
+
+    # next iteration
+    if (accept==5){
+      accepted[n] = 1
+      prev_x = x_i[n,]
+      prev_y = y_est_i[n,]
+      prev_p = p_i[n]
+      prev_q = q_i[n]
+      prev_y_mod = y_mod_i[n,]
+    } else {accepted[n] = 0}
+    
+  }
+
+
+ # Check
+  print(paste0(n_iterations," iterations were run"))
+  print(paste0(sum(accepted==-1)," iterations did not run correctly"))
+  print(paste0(sum(accepted==1)," iterations were accepted"))
+  print(paste0(sum(accepted==1)/n_iterations*100,"% of iterations were accepted"))
+
+  # plot p and q for each iteration and 1:1 plot of p, q
+  par(mfrow=c(1,3))
+  plot(1:n_iterations,p_i,pch=4,col="blue",ylab="p")
+  points((1:n_iterations)[accepted==1],p_i[accepted==1],pch=4,col="red")
+  lines(1:n_iterations,rep(p,n_iterations),col="yellow") # Plot prior p also
+  legend("topleft", legend=c("prior","all solutions","accepted solutions"),col=c("yellow", "blue", "red"), lty=1, cex=0.5, pch=20)
+  plot(1:n_iterations,q_i,pch=4,col="blue",ylab="q")
+  points((1:n_iterations)[accepted==1],q_i[accepted==1],pch=4,col="red")
+  lines(1:n_iterations,rep(q,n_iterations),col="yellow") # Plot prior q also
+  plot(p_i,q_i,pch=4,col="blue",xlab="p",ylab="q")
+  points(p_i[accepted==1],q_i[accepted==1],pch=4,col="red")
+  points(p,q,pch=20,col="yellow")
+
+  p_post = c(mean(p_i[accepted==1]),sd(p_i[accepted==1]))
+  print(paste0("Posterior value of p: p = ",round(p_post[1],2)," +/- ",round(p_post[2],2)))
+  q_post = c(mean(q_i[accepted==1]),sd(q_i[accepted==1]))
+  print(paste0("Posterior value of q: q = ",round(q_post[1],2)," +/- ",round(q_post[2],2)))
+  print(paste0("p-q: Pearson correlation coefficient of  ",round(cor(p_i[accepted==1],q_i[accepted==1]),2)))
+
+
+  # plot x vs y, prior and post
+  x_post = apply(x_i[accepted==1,],2,mean)
+  x_post_sd = apply(x_i[accepted==1,],2,sd)
+  y_post = apply(y_est_i[accepted==1,],2,mean) 
+  y_post_sd = apply(y_est_i[accepted==1,],2,sd)
+  p_post = mean(p_i[accepted==1])
+  p_post_sd = sd(p_i[accepted==1])
+  q_post = mean(q_i[accepted==1])
+  q_post_sd = sd(q_i[accepted==1])
+  y_mod_post = test_model(x_post, p_post[1], q_post[1])
+
+  compare_post_prior(x,y_obs,y_mod,x_post,y_post,y_mod_post)
+
   # Combine return values
-  res = NaN
+  res = list(x_post, x_post_sd, y_post, y_post_sd, p_post, p_post_sd, q_post, q_post_sd, y_mod_post)
   return(res)
 }
+
 ```
 
 ## Run the MCMC
@@ -106,7 +273,7 @@ MCMC(
     q,q_err,
     test_model, model_rerr,
     step_length = 1, 
-    n_iterations = 10000 
+    n_iterations = 10000
 )
 ```
 
@@ -114,44 +281,90 @@ MCMC(
 
 Run the MCMC with a step size of 0.2 instead of 1. What changes do you observe in: The number of accepted solutions? Why? The shape of changes in p and q over each iteration, as shown in the figure? The final results?
 
-*Describe your solution*
-
+*More accepted solutions, possibly due to the much smaller pertubation. Both p and q tend to get more "wavey"- higher frequency-along the iterations. The final results showed smaller RMSE, however in some runs I get p and q more deviated from 5 and -1.*
 ```{r}
-# Run MCMC here stepsize of 0.2
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 0.2, 
+    n_iterations = 10000
+)
 ```
 
 Run the MCMC with a step size of 0.2 in combination with 500 steps and with 100 000 steps. What difference do you see between these two configurations?
 
-*Describe your solution*
+*Higher percentage of acceptance for 500 steps', lower RMSE for 100 000 steps', for p, 100000 steps seemed to configure better, no significant difference for q in my runs.*
 
 ```{r}
-# Run MCMC here with 500 steps
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 0.2, 
+    n_iterations = 500
+)
 ```
 
 ```{r}
-# Run MCMC here with 100 000 steps
+n_iterations = 100000
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 0.2, 
+    n_iterations = 100000
+)
 ```
 
 ## Effect of prior parameters
 
 Our prior values of p was not so far from the value used to generate y. Let's set p to 10 with large uncertainty of 10 and run the MCMC. What happens? What other parameters do you need to change for good results?
 
-*Describe your solution*
+*higher uncertainty resulted in also higher sd for p_post and more divation in modeling. *
 
 ```{r}
-# Run MCMC here with p = 10 and p_err = 10
-# Select an appropriate step size and n_iterations
+p = 10
+p_err = 10
+
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 0.2, 
+    n_iterations = 20000
+)
 ```
 
 ## Effect of uncertainty
 
 Let's imagine our prior estimates were very well constrained and set uncertainty in p and q to 0.1. What happens?
 
-*Describe your solution*
+*much higher acceptance, and the estimation for p and q tend to be centered around the given values with very low sd*
 
 ```{r}
-# Run MCMC here with p = 10 and p_err = 10
-# Select an appropriate step size and n_iterations
+p = 5
+p_err = 0.1
+q = -1
+q_err = 0.1
+
+MCMC(
+    x, x_err,
+    y_obs, y_obs_rerr,
+    p,p_err,
+    q,q_err,
+    test_model, model_rerr,
+    step_length = 0.1, 
+    n_iterations = 1000
+)
 ```
 
 
